@@ -10,31 +10,11 @@ def retroactively_add_easting_northing():
     conn = sqlite3.connect("database.db")
     c = conn.cursor()
 
-    # lookup all addresses
+    # lookup all addresses and update easting and northing in one SQL statement
     c.execute(
-        "SELECT unit_numb, st_no_from, street, st_ty_code, locality, postcode, state FROM addresses"
+        "UPDATE addresses SET easting = (SELECT easting FROM list_address_points_statewide WHERE unit_numb = addresses.unit_numb AND st_no_from = addresses.st_no_from AND street = addresses.street AND st_ty_code = addresses.st_ty_code AND locality = addresses.locality LIMIT 1), "
+        "northing = (SELECT northing FROM list_address_points_statewide WHERE unit_numb = addresses.unit_numb AND st_no_from = addresses.st_no_from AND street = addresses.street AND st_ty_code = addresses.st_ty_code AND locality = addresses.locality LIMIT 1)"
     )
-    addresses = c.fetchall()
-
-    # lookup each address in the list_address_points_statewide table
-    # match unit_numb, st_no_from, street, st_ty_code, locality, postcode, state
-
-    for address in addresses:
-        c.execute(
-            "SELECT easting, northing FROM list_address_points_statewide "
-            + "WHERE unit_numb = ? AND st_no_from = ? AND street = ? AND st_ty_code = ? AND locality = ? AND postcode = ? AND state = ?",
-            address,
-        )
-        easting_northing = c.fetchone()
-
-        if easting_northing is not None:
-            c.execute(
-                "UPDATE addresses SET easting = ?, northing = ? "
-                + "WHERE unit_numb = ? AND st_no_from = ? AND street = ? AND st_ty_code = ? AND locality = ? AND postcode = ? AND state = ?",
-                (*easting_northing, *address),
-            )
-        else:
-            print("No easting/northing found for address:", address)
 
     # commit the changes
     conn.commit()
